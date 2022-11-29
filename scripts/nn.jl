@@ -5,8 +5,9 @@ begin
     using main
     using Plots, Random, Distributions
     using Flux, Turing
-    pyplot()
+    gr()
     theme(:default)
+    default(levels=7, lw=0.5, la=0.5, msw=0.5)
 end
 
 begin
@@ -144,18 +145,62 @@ function bayes_plot(; method=1, step=10, cls=palette(:thermal, rev=false), res=5
 end
 
 
+s3, a3 = mcmc(
+    DualAverage(λ=10, δ=0.5),
+    HMC(),
+    model; n=1000, n_burn=10
+)
+
+
+da = DualAverage(λ=2, δ=0.5)
+@unpack λ, δ = da
+m1 = HMC()
+state = InitializeState(randn(20), m1, model)
+
+ϵ = find_reasonable_epsilon(randn(20), model, α=0.5)
+@set! m1.ϵ = ϵ
+@set! m1.L = round(Int, λ/m1.ϵ)
+
+S = m1
+S = Initialize_DualVariables(S)
+for m in 1:10
+    @set! S.L = max(1, round(Int, λ / S.ϵ))
+    newstate, α_MH = OneStep(state, S, model)
+    α_MH = min(1, α_MH)
+    if rand() < α_MH
+        state = (; newstate...)
+    end
+    S = Update_DualVariables(S, α_MH, δ, m, 0.75)
+    if !isnothing(p)
+        next!(p, showvalues=() -> [("$(typeof(S))", "Warming Up...")])
+    end
+end
+
+
+
+m1, _ = main.DualAveraging(da, HMC(), model; n_burn=100)
+method = HaRAM()
+
+
+
+
+
+
+
+
+
 begin
     Random.seed!(2022)
     s1, a1 = mcmc(
         HaRAM(ϵ=0.05, L=4, γ=0.25),
         model; n=5e3, n_burn=1e3
     )
-    x_haram = s1[a1, :];
+    x_haram = s1[a1, :]
     s2, a2 = mcmc(
         main.HMC(ϵ=0.05, L=4),
         model; n=5e3, n_burn=1e3
     )
-    x_hmc = s2[a2, :];
+    x_hmc = s2[a2, :]
     bayes_plot(method=3)
 end
 
