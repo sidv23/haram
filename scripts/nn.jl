@@ -4,11 +4,119 @@ using DrWatson
 begin
     using main
     using Plots, Random, Distributions
-    using Flux, Turing
+    using Flux, DynamicPPL, Zygote
     gr()
     theme(:default)
     default(levels=7, lw=0.5, la=0.5, msw=0.5)
 end
+
+
+begin
+    
+    function make_model(ξ::DynamicPPL.Model, d)
+        U(x) = min(-logjoint(ξ, (; θ=x)), floatmax(Float64))
+        dU(x) = Zygote.gradient(x_ -> Zygote.forwarddiff(U, x_), x)[1]
+        f(x) = max(exp(-U(x)), floatmin(Float64))
+        g(x) = Zygote.gradient(x_ -> Zygote.forwarddiff(f, x_), x)
+        return main.Model(ξ=ξ, d=d, f=f, g=g, U=U, dU=dU)
+    end
+    
+    
+    function plot_colorbar(cls)
+        scatter([0, 0], [0, 1],
+        zcolor=[0, 1], clims=(0, 1), xlims=(1, 1.1), c=cls,
+        label="", colorbar_title="", framestyle=:none
+        )
+    end
+    
+    function nn_plot(theta; res=25, c=:viridis)
+        x_range = collect(range(-6; stop=6, length=res))
+        contourf(
+        x_range, x_range,
+        (x, y) -> f(theta)([x, y])[1], c=c
+        )
+        scatter!(
+        Tuple.(eachrow(xs)),
+        c=map(x -> x == 1 ? :firebrick1 : :dodgerblue1, ys),
+        m=map(x -> x == 1 ? :square : :circle, ys),
+        group=ys,
+        legend=:bottomright
+        )
+    end
+    
+    function nn_plot_mean(thetas; c=:viridis, res=25)
+        x_range = collect(range(-6; stop=6, length=res))
+        contourf(
+        x_range, x_range,
+        (x, y) -> mean([f(theta)([x, y])[1] for theta in eachrow(thetas)]), c=c
+        )
+        scatter!(
+        Tuple.(eachrow(xs)),
+        c=map(x -> x == 1 ? :firebrick1 : :dodgerblue1, ys),
+        m=map(x -> x == 1 ? :square : :circle, ys),
+        group=ys,
+        legend=:bottomright
+        )
+    end
+    
+    
+    function bayes_plot(; method=1, step=10, cls=palette(:thermal, rev=false), res=50)
+        if method == 1
+            a = @animate for i in 0:step:size(s1, 1)-50
+                plot(
+                plot(
+                nn_plot_mean(s1[i+1:i+5, :], res=res, c=cls),
+                colorbar=false, title="HMC(i=$i)"
+                ),
+                plot(
+                nn_plot_mean(s2[i+1:i+5, :], res=res, c=cls),
+                colorbar=false, title="HaRAM(i=$i)"
+                ),
+                plot_colorbar(cls),
+                layout=(@layout [grid(1, 2) a{0.035w}]),
+                link=:all,
+                size=(800, 300)
+                )
+            end
+        elseif method == 2
+            a = @animate for i in 0:step:size(s2, 1)
+                plot(
+                plot(
+                nn_plot(s1[i+1, :], res=res, c=cls),
+                colorbar=false, title="HMC(i=$i)"
+                ),
+                plot(
+                nn_plot(s2[i+1, :], res=res, c=cls),
+                colorbar=false, title="HaRAM(i=$i)"
+                ),
+                plot_colorbar(cls),
+                layout=(@layout [grid(1, 2) a{0.035w}]),
+                link=:all,
+                size=(800, 300)
+                )
+            end
+        elseif method == 3
+            a = plot(
+            plot(
+            nn_plot_mean(x_hmc[1:step:end, :], res=res, c=cls),
+            colorbar=false, title="HMC"
+            ),
+            plot(
+            nn_plot_mean(x_haram[1:step:end, :], res=res, c=cls),
+            colorbar=false, title="HaRAM"
+            ),
+            plot_colorbar(cls),
+            layout=(@layout [grid(1, 2) a{0.035w}]),
+            link=:all,
+            size=(800, 300)
+            )
+        end
+        return a
+    end
+end
+
+
+###########################################
 
 begin
     Random.seed!(2022)
@@ -17,196 +125,61 @@ begin
     x0 = [s .* randn(30, 2) .+ μ[1]; s .* randn(100, 2) .+ μ[2]]
     x1 = [s .* randn(10, 2) .+ μ[3]; s .* randn(80, 2) .+ μ[4]]
     xs = [x0; x1]
-    ts = [zeros(size(x0, 1)); ones(size(x1, 1))] .|> Int
+    ys = [zeros(size(x0, 1)); ones(size(x1, 1))] .|> Int
 end
 
-scatter(Tuple.(eachrow(xs)), group=ts, ratio=1)
-savefig(plotsdir("nn/pyplot.pdf"))
+scatter(Tuple.(eachrow(xs)), group=ys, ratio=1)
 
-model = Chain(
-    Dense(2, 3, tanh),
-    Dense(3, 2, tanh),
-    Dense(2, 1, sigmoid)
+F = Chain(
+Dense(2, 2, tanh),
+Dense(2, 2, tanh),
+Dense(2, 2, tanh),
+Dense(2, 1, sigmoid)
 )
 
-parameters_initial, reconstruct = Flux.destructure(model)
-length(parameters_initial)
+θ, f = Flux.destructure(F)
 
 alpha = 0.09
 sig = sqrt(1.0 / alpha)
 
-npars = length(parameters_initial)
-nn = reconstruct(randn(20))
-preds = nn(xs')
-
-@model function bayes_nn(xs, ts, nparameters, reconstruct)
-    parameters ~ MvNormal(zeros(nparameters), sig .* ones(nparameters))
-    nn = reconstruct(parameters)
-    preds = nn(xs)
-    for i in eachindex(ts)
-        ts[i] ~ Bernoulli(preds[i])
+@model function bayes_nn(xs, ys, nθ, f)
+    θ ~ MvNormal(zeros(nθ), sig .* ones(nθ))
+    F = f(θ)
+    ps = F(xs)
+    for i in eachindex(ys)
+        ys[i] ~ Bernoulli(ps[i])
     end
 end;
 
-U(x) = -1 * logjoint(bayes_nn(xs', ts, length(parameters_initial), reconstruct), (; parameters=x))
-f(x) = exp(U(x))
-model = Model(ξ=mod, d=20, f=f, U=U)
 
-function plot_colorbar(cls)
-    scatter([0, 0], [0, 1],
-        zcolor=[0, 1], clims=(0, 1), xlims=(1, 1.1), c=cls,
-        label="", colorbar_title="", framestyle=:none
-    )
-end
-
-function nn_plot(theta; res=25, c=:viridis)
-    x_range = collect(range(-6; stop=6, length=res))
-    contourf(
-        x_range, x_range,
-        (x, y) -> reconstruct(theta)([x, y])[1], c=c
-    )
-    scatter!(
-        Tuple.(eachrow(xs)),
-        c=map(x -> x == 1 ? :firebrick1 : :dodgerblue1, ts),
-        m=map(x -> x == 1 ? :square : :circle, ts),
-        group=ts,
-        legend=:bottomright
-    )
-end
-
-function nn_plot_mean(thetas; c=:viridis, res=25)
-    x_range = collect(range(-6; stop=6, length=res))
-    contourf(
-        x_range, x_range,
-        (x, y) -> mean([reconstruct(theta)([x, y])[1] for theta in eachrow(thetas)]), c=c
-    )
-    scatter!(
-        Tuple.(eachrow(xs)),
-        c=map(x -> x == 1 ? :firebrick1 : :dodgerblue1, ts),
-        m=map(x -> x == 1 ? :square : :circle, ts),
-        group=ts,
-        legend=:bottomright
-    )
-end
-
-
-function bayes_plot(; method=1, step=10, cls=palette(:thermal, rev=false), res=50)
-    if method == 1
-        a = @animate for i in 0:100:size(s1, 1)-50
-            plot(
-                plot(
-                    nn_plot_mean(s1[i+1:i+5, :], res=res, c=cls),
-                    colorbar=false, title="HaRAM(i=$i)"
-                ),
-                plot(
-                    nn_plot_mean(s2[i+1:i+5, :], res=res, c=cls),
-                    colorbar=false, title="HMC(i=$i)"
-                ),
-                plot_colorbar(cls),
-                layout=(@layout [grid(1, 2) a{0.035w}]),
-                link=:all,
-                size=(800, 300)
-            )
-        end
-    elseif method == 2
-        a = @animate for i in 0:100:size(s1, 1)
-            plot(
-                plot(
-                    nn_plot(s1[i+1, :], res=res, c=cls),
-                    colorbar=false, title="HaRAM(i=$i)"
-                ),
-                plot(
-                    nn_plot(s2[i+1, :], res=res, c=cls),
-                    colorbar=false, title="HMC(i=$i)"
-                ),
-                plot_colorbar(cls),
-                layout=(@layout [grid(1, 2) a{0.035w}]),
-                link=:all,
-                size=(800, 300)
-            )
-        end
-    elseif method == 3
-        a = plot(
-            plot(
-                nn_plot_mean(x_haram[1:step:end, :], res=res, c=cls),
-                colorbar=false, title="HaRAM"
-            ),
-            plot(
-                nn_plot_mean(x_hmc[1:step:end, :], res=res, c=cls),
-                colorbar=false, title="HMC"
-            ),
-            plot_colorbar(cls),
-            layout=(@layout [grid(1, 2) a{0.035w}]),
-            link=:all,
-            size=(800, 300)
-        )
-    end
-    return a
-end
-
-
-s3, a3 = mcmc(
-    DualAverage(λ=10, δ=0.5),
-    HMC(),
-    model; n=1000, n_burn=10
-)
-
-
-da = DualAverage(λ=2, δ=0.5)
-@unpack λ, δ = da
-m1 = HMC()
-state = InitializeState(randn(20), m1, model)
-
-ϵ = find_reasonable_epsilon(randn(20), model, α=0.5)
-@set! m1.ϵ = ϵ
-@set! m1.L = round(Int, λ/m1.ϵ)
-
-S = m1
-S = Initialize_DualVariables(S)
-for m in 1:10
-    @set! S.L = max(1, round(Int, λ / S.ϵ))
-    newstate, α_MH = OneStep(state, S, model)
-    α_MH = min(1, α_MH)
-    if rand() < α_MH
-        state = (; newstate...)
-    end
-    S = Update_DualVariables(S, α_MH, δ, m, 0.75)
-    if !isnothing(p)
-        next!(p, showvalues=() -> [("$(typeof(S))", "Warming Up...")])
-    end
-end
-
-
-
-m1, _ = main.DualAveraging(da, HMC(), model; n_burn=100)
-method = HaRAM()
-
-
-
-
-
-
-
+ξ = bayes_nn(xs', ys, length(θ), f)
+model = make_model(ξ, length(θ))
 
 
 begin
-    Random.seed!(2022)
     s1, a1 = mcmc(
-        HaRAM(ϵ=0.05, L=4, γ=0.25),
-        model; n=5e3, n_burn=1e3
+    DualAverage(λ=1, δ=0.7),
+    HMC(),
+    model; n=5e3, n_burn=1e3
     )
-    x_haram = s1[a1, :]
-    s2, a2 = mcmc(
-        main.HMC(ϵ=0.05, L=4),
-        model; n=5e3, n_burn=1e3
-    )
-    x_hmc = s2[a2, :]
-    bayes_plot(method=3)
+    x_hmc = s1[a1, :]
+    nn_plot_mean(x_hmc, res=50)
 end
 
-bayes_plot(method=3, cls=palette(:viridis, [0.1:0.1:0.8...], rev=false), step=20, res=100)# |> savefig(plotsdir("nn/contour.pdf"))
+begin
+    s2, a2 = mcmc(
+    DualAverage(λ=1, δ=0.7),
+    HaRAM(),
+    model; n=5e3, n_burn=1e3
+    )
+    x_haram = s2[a2, :]
+    nn_plot_mean(x_haram, res=50)
+end
 
-gif(bayes_plot(method=1, palette(:viridis, [0.1:0.1:0.8...], rev=false)), plotsdir("gifs/bayes_mean2.gif"), fps=10)
+bayes_plot(method=3, cls=palette(:viridis, rev=false), res=100)# |> 
+savefig(plotsdir("nn/contour.pdf"))
+
+gif(bayes_plot(method=1, cls=palette(:viridis, rev=false), step=20), plotsdir("gifs/bayes_mean2.gif"), fps=7)
 # gif(a, plotsdir("gifs/bayes_nomean.gif"), fps=10)
 
 # savefig(plotsdir("nn/final.pdf"))

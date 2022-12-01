@@ -140,7 +140,7 @@ function mcmc(D::DualAverage, S::AbstractSampler, M::Model; n::I=1e3, n_burn::I=
     p = Progress(Int(N + n_burn))
     generate_showvalues(x) = () -> [("$(typeof(S))", x)]
 
-    S, state = DualAveraging(D, S, M; n_burn=n_burn, p=p)
+    S, state = DualAveraging(D, S, M; n_burn=Int(n_burn), p=p)
 
     for i ∈ 1:N
         state = RefreshState(samples[i, :], state, S, M; kwargs...)
