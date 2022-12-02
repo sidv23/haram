@@ -1,12 +1,12 @@
 using CSV, DataFrames
 
-function log_likelihood(param::AbstractVector{T}, data) where {T}
+function log_likelihood(B, param::AbstractVector{T}, data) where {T}
 
-    delta = param[1] # bounded real value
-    c = param[2] # bounded real value
-    mu = param[3] # bounded real value
-    sigma = param[4] # sigma squared (>0)
-    sqrttau = param[5] # timescale (>0)
+    delta = param[1]
+    c = param[2]
+    mu = param[3]
+    sigma = param[4]
+    sqrttau = param[5]
 
     tau = sqrttau^2
 
@@ -37,7 +37,7 @@ function log_likelihood(param::AbstractVector{T}, data) where {T}
     x = lc_comb .- mu
 
     # omega_i, i = 1, 2, ..., 2n to be saved
-    B = fill(T(1), leng_time_comb)
+    B = fill(T(1), leng_time_comb) 
 
     # x_hat_i, i = 1, 2, ..., 2n to be saved
     mu_i = fill(T(-1), leng_time_comb)
