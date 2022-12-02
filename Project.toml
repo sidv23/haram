@@ -1,6 +1,7 @@
 name = "haram"
 
 [deps]
+AdvancedHMC = "0bf59076-c3b1-5ca4-86bd-e02cd72cde3d"
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 Bijectors = "76274a88-744f-5084-9051-94815aaf08c4"
 BlockDiagonals = "0a1fb500-61f7-11e9-3c65-f5ef3456f9f0"

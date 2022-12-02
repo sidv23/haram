@@ -14,9 +14,9 @@ function OneLeapfrog(M::Model, state::NamedTuple, ϵ::Real, τ::Real=1.0)
     return (; state..., q=q, p=p)
 end
 
-function find_reasonable_epsilon(q::Vector{T}, M::Model; n_iter::Int=1_000, α::Real=0.5) where {T <: Real}
+function find_reasonable_epsilon(q::Vector{T}, M::Model; n_iter::Int=1_000, α::Real=0.5, eps::T=0.9) where {T <: Real}
     state = (; q=q, p=randn(M.d), m=1.0)
-    ϵ, ϵ0 = fill(0.9, 2)
+    ϵ, ϵ0 = fill(eps, 2)
     log_α = log(α)
 
     newstate = OneLeapfrog(M, state, ϵ)
@@ -90,14 +90,13 @@ function Set_DualVariables(S::HaRAM, λ)
     @set! S.L = max(4, round(Int, λ / S.ϵ))
 end
 
-function DualAveraging(D::DualAverage, S::AbstractSampler, M::Model; n_burn::Integer=100, p=nothing)
+function DualAveraging(D::DualAverage, S::AbstractSampler, M::Model; n_burn::Integer=100, p=nothing, ϵ0::T=1.0) where {T <: Real}
 
     @unpack λ, δ = D
 
     q = randn(M.d)
     state = InitializeState(q, S, M)
-
-    ϵ = find_reasonable_epsilon(q, M, α=0.5)
+    ϵ = AdvancedHMC.find_good_stepsize(AdvancedHMC.Hamiltonian(DiagEuclideanMetric(5), M.U, ForwardDiff), q)
     @set! S.ϵ = ϵ
 
     if typeof(S) === HaRAM

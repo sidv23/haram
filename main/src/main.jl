@@ -16,6 +16,7 @@ using Statistics
 using StatsFuns
 using Distances
 using Setfield
+using AdvancedHMC
 
 import Base: +, -, @kwdef
 
