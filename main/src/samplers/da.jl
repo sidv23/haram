@@ -96,7 +96,10 @@ function DualAveraging(D::DualAverage, S::AbstractSampler, M::Model; n_burn::Int
 
     q = randn(M.d)
     state = InitializeState(q, S, M)
+
+    # ϵ = find_reasonable_epsilon(q, M, α=0.5)
     ϵ = AdvancedHMC.find_good_stepsize(AdvancedHMC.Hamiltonian(DiagEuclideanMetric(5), M.U, ForwardDiff), q)
+    @info "ϵ = " ϵ
     @set! S.ϵ = ϵ
 
     if typeof(S) === HaRAM

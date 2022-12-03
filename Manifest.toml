@@ -1895,7 +1895,7 @@ uuid = "f27f6e37-5d2b-51aa-960f-b287f2bc3b7a"
 version = "1.3.7+1"
 
 [[deps.main]]
-deps = ["Distances", "Distributions", "DistributionsAD", "LinearAlgebra", "MCMCChains", "MCMCDiagnosticTools", "NNlib", "Parameters", "Plots", "ProgressMeter", "Random", "Setfield", "Statistics", "StatsBase", "StatsFuns", "StatsPlots", "Zygote"]
+deps = ["AdvancedHMC", "Distances", "Distributions", "DistributionsAD", "LinearAlgebra", "MCMCChains", "MCMCDiagnosticTools", "NNlib", "Parameters", "Plots", "ProgressMeter", "Random", "Setfield", "Statistics", "StatsBase", "StatsFuns", "StatsPlots", "Zygote"]
 path = "main"
 uuid = "d4387e3f-b08f-4148-9d80-1476cd5e70f5"
 version = "0.1.0"
