@@ -3,8 +3,7 @@
 Base.@kwdef struct HaRAM <: AbstractSampler
     ϵ::T where {T<:Real} = 0.5
     L::Integer = 20
-    # γ::T where {T<:Real} = 0.8
-    γ::T where {T<:Real} = 1.0
+    γ::T where {T<:Real} = 0.8
     cache::Any = []
 end
 
