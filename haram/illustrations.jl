@@ -40,7 +40,7 @@ begin
         fa=0.2, lw=3;
         params...,
         margin=0mm
-    );
+    )
     annotate!(0, 0, L"K(\mathbf{p})")
 
     px = plot(
@@ -54,8 +54,8 @@ begin
         lw=3, fa=0.2;
         params...,
         margin=0mm
-    );
-    annotate!(0, -.025, L"U(\mathbf{q})")
+    )
+    annotate!(0, -0.025, L"U(\mathbf{q})")
 
     Pxy() = begin
         contourf(
@@ -68,7 +68,8 @@ begin
         )
     end
 
-    p0 = plot(0, 0; params...); annotate!(.5, .5, L"H(\mathbf{q}, \mathbf{p})")
+    p0 = plot(0, 0; params...)
+    annotate!(0.5, 0.5, L"H(\mathbf{q}, \mathbf{p})")
 
     l = @layout [
         [b{0.15h} a{0.15w}]
@@ -89,8 +90,9 @@ begin
     p1, _ = OnePath(state, HMC(ϵ=0.25, L=25), model)
     p2, _ = OnePath(state, HaRAM(ϵ=0.25, L=25, γ=0.25), model)
     plt1 = plot(Pxy(), map(x -> (x.q, x.p), p1), marker=:o, c=:dodgerblue, lw=5, ms=5, msw=1.0, lc=:grey, label="HMC")
-    plt1 = plot(plt1, map(x -> (x.q, x.p), p2), marker=:o, c=:chartreuse, lw=5, ms=5, msw=1.0, lc=:grey, label="HaRAM")
-    plt1 = scatter(plt1, (state.q, state.p), c=:white, ms=9, msw=3.0, legend=:bottomleft, legendfontsize=11, thickness_scaling=1)
+    plt1 = plot(plt1, map(x -> (x.q, x.p), p2[1:end-24]), marker=:o, c=:orange, lw=5, ms=5, msw=1.0, lc=:grey, label="Repelling")
+    plt1 = plot(plt1, map(x -> (x.q, x.p), p2[end-24:end]), marker=:o, c=:chartreuse, lw=5, ms=5, msw=1.0, lc=:grey, label="Attracting")
+    plt1 = scatter(plt1, (state.q, state.p), c=:white, ms=9, msw=3.0, legend=:bottomleft, legendfontsize=9, thickness_scaling=1)
     # annotate!(0, 8, L"U(\mathbf{q})")
     # annotate!(8.45, 0, L"K(\mathbf{p})")
     plt(plt1, size=(550, 550))
