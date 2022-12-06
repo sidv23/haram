@@ -192,7 +192,7 @@ s, a = gibbs_sample3(
     df,
     (
         main.HaRAM(ϵ=0.01, L=10, γ=20.1),
-        main.HaRAM(ϵ=2e-2, L=5, γ=0.2),
+        main.HaRAM(ϵ=5e-3, L=5, γ=0.2),
         main.HaRAM(ϵ=2e-5, L=3, γ=0.1)
     ),
     n=50000
@@ -209,7 +209,7 @@ end
 begin
 	plt = plot(df.time, df.lca, marker=:o, label="x(t)", lw=2)
 	for i in sample(eachindex(θ[1]), 200)
-	    plt = plot(plt, df.time .- θ[1][i], df.lcb, label="", lw=2, la=0.05, c=:grey)
+	    plt = plot(plt, df.time .- θ[1][i], df.lcb, label="", lw=1, la=0.05, c=:grey)
 	end
 	plt = plot(plt, df.time .- mean(θ[1]), df.lcb, marker=:o, label="y(t-Δ)", c=:firebrick1, lw=2)
 	vline!([minimum(df.time), 4825, 4940, 5185, 5360, 5550, 5590], label="", legend=:bottomright, ls=:dash)

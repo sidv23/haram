@@ -97,9 +97,9 @@ function DualAveraging(D::DualAverage, S::AbstractSampler, M::Model; n_burn::Int
     q = randn(M.d)
     state = InitializeState(q, S, M; kwargs...)
 
-    ϵ = find_reasonable_epsilon(q, M, α=0.5)
-    # ϵ = AdvancedHMC.find_good_stepsize(AdvancedHMC.Hamiltonian(DiagEuclideanMetric(M.d), M.U, ForwardDiff), q)
-    @info "" ϵ
+    # ϵ = find_reasonable_epsilon(q, M, α=0.5)
+    ϵ = AdvancedHMC.find_good_stepsize(AdvancedHMC.Hamiltonian(DiagEuclideanMetric(M.d), M.U, ForwardDiff), q)
+    # @info "" ϵ
     @set! S.ϵ = ϵ
     
     if typeof(S) === HaRAM
@@ -112,7 +112,7 @@ function DualAveraging(D::DualAverage, S::AbstractSampler, M::Model; n_burn::Int
 
     for m in 1:n_burn
         @set! S.L = min(max(1, round(Int, λ / S.ϵ)), 100)
-        @info "" S
+        # @info "" S
         newstate, α_MH = OneStep(state, S, M)
         α_MH = min(1, α_MH)
         if rand() < α_MH
@@ -145,6 +145,7 @@ function mcmc(D::DualAverage, S::AbstractSampler, M::Model; n::I=1e3, n_burn::I=
     generate_showvalues(x) = () -> [("$(typeof(S))", x)]
 
     S, state = DualAveraging(D, S, M; n_burn=Int(n_burn), p=p)
+    println("S=$S")
 
     for i ∈ 1:N
         state = RefreshState(samples[i, :], state, S, M; kwargs...)
