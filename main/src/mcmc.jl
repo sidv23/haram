@@ -17,7 +17,7 @@ function mcmc(S::T, M::Model; n::I=1e3, n_burn::I=1e3, init=nothing, kwargs...) 
         init = randn(M.d)
     end
 
-    state = InitializeState(init, S, M)
+    state = InitializeState(init, S, M; kwargs...)
 
     N = Int(n + n_burn)
     samples = repeat(init', N + 1)

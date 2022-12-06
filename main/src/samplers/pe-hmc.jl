@@ -28,7 +28,7 @@ function InitializeState(q, S::PEHMC, M::Model)
 end
 
 function RefreshState(q, state, S::PEHMC, M::Model; kwargs...)
-    return (; state..., q=q, p=[randn(M.d) for _ in 1:S.N], α=[randn() for _ in 1:S.N])
+    return (; state..., q=q, p=[randn(M.d) .* sqrt.(state.m) for _ in 1:S.N], α=[randn() for _ in 1:S.N])
 end
 
 function OneStep(state, S::PEHMC, M::Model; ref::Bool=true, kwargs...)

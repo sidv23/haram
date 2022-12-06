@@ -40,7 +40,7 @@ function Initialize_DualVariables(S::HMC)
     @set! S.cache = (
         h=0.0,
         ϵ_dual=1.0,
-        ϵ_level=log(10 * S.ϵ),
+        ϵ_level=max(0.0, log(10 * S.ϵ)),
         ϵ_rate=0.75,
         t0=10
     )
@@ -90,27 +90,29 @@ function Set_DualVariables(S::HaRAM, λ)
     @set! S.L = max(4, round(Int, λ / S.ϵ))
 end
 
-function DualAveraging(D::DualAverage, S::AbstractSampler, M::Model; n_burn::Integer=100, p=nothing, ϵ0::T=1.0) where {T <: Real}
+function DualAveraging(D::DualAverage, S::AbstractSampler, M::Model; n_burn::Integer=100, p=nothing, ϵ0::T=1.0, kwargs...) where {T <: Real}
 
     @unpack λ, δ = D
 
     q = randn(M.d)
-    state = InitializeState(q, S, M)
+    state = InitializeState(q, S, M; kwargs...)
 
-    # ϵ = find_reasonable_epsilon(q, M, α=0.5)
-    ϵ = AdvancedHMC.find_good_stepsize(AdvancedHMC.Hamiltonian(DiagEuclideanMetric(5), M.U, ForwardDiff), q)
-    @info "ϵ = " ϵ
+    ϵ = find_reasonable_epsilon(q, M, α=0.5)
+    # ϵ = AdvancedHMC.find_good_stepsize(AdvancedHMC.Hamiltonian(DiagEuclideanMetric(M.d), M.U, ForwardDiff), q)
+    @info "" ϵ
     @set! S.ϵ = ϵ
-
+    
     if typeof(S) === HaRAM
         S_init, _ = DualAveraging(D, HMC(ϵ=ϵ), M; n_burn=n_burn, p=nothing)
         @set! S.ϵ = S_init.ϵ
     end
-
+    
     S = Initialize_DualVariables(S)
+    # @set! S.cache.ϵ_dual = ϵ
 
     for m in 1:n_burn
-        @set! S.L = max(1, round(Int, λ / S.ϵ))
+        @set! S.L = min(max(1, round(Int, λ / S.ϵ)), 100)
+        @info "" S
         newstate, α_MH = OneStep(state, S, M)
         α_MH = min(1, α_MH)
         if rand() < α_MH
@@ -133,7 +135,7 @@ function mcmc(D::DualAverage, S::AbstractSampler, M::Model; n::I=1e3, n_burn::I=
         init = randn(M.d)
     end
 
-    state = InitializeState(init, S, M)
+    state = InitializeState(init, S, M; kwargs...)
 
     N = Int(n)
     samples = repeat(init', N + 1)

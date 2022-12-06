@@ -20,7 +20,7 @@ function +(s1::NamedTuple, s2::NamedTuple)
 end
 
 function KE(state::NamedTuple, M::Model)
-    sum(state.p .^ 2) / (2 * state.m)
+    sum((state.p .^ 2) ./ (2 .* state.m))
 end
 
 function PE(state::NamedTuple, M::Model)

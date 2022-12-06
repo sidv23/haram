@@ -6,12 +6,12 @@ Base.@kwdef struct HMC <: AbstractSampler
     cache::Any = []
 end
 
-function InitializeState(q, S::HMC, M::Model)
-    return (; q=q, p=randn(M.d), m=1.0)
+function InitializeState(q, S::HMC, M::Model; kwargs...)
+    return (; q=q, p=randn(M.d), m=1.0, kwargs...)
 end
 
 function RefreshState(q, state, S::HMC, M::Model; kwargs...)
-    return (; state..., p=randn(M.d))
+    return (; state..., p=randn(M.d) .* sqrt.(state.m))
 end
 
 function OneStep(state::NamedTuple, S::HMC, M::Model; τ::Real=1.0, kwargs...)
@@ -23,10 +23,10 @@ function OneStep(state::NamedTuple, S::HMC, M::Model; τ::Real=1.0, kwargs...)
 
     p = p .- (ϵby2 .* M.dU(q) .* τ)
     for _ in 1:(L-1)
-        q = q .+ (ϵ .* p / m)
+        q = q .+ (ϵ .* p ./ m)
         p = p .- (ϵ .* M.dU(q) .* τ)
     end
-    q = q .+ (ϵ * p / m)
+    q = q .+ (ϵ * p ./ m)
     p = p .- (ϵby2 .* M.dU(q) .* τ)
 
     newstate = momentum_flip((; state..., q=q, p=p))

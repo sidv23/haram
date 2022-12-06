@@ -7,30 +7,30 @@ Base.@kwdef struct HaRAM <: AbstractSampler
     cache::Any = []
 end
 
-function InitializeState(q, S::HaRAM, M::Model)
-    return (; q=q, p=randn(M.d), m=1.0)
+function InitializeState(q, S::HaRAM, M::Model; kwargs...)
+    return (; q=q, p=randn(M.d), m=1.0, kwargs...)
 end
 
 function RefreshState(q, state, S::HaRAM, M::Model; kwargs...)
-    return (; state..., p=randn(M.d))
+    return (; state..., p=randn(M.d) .* sqrt.(state.m))
 end
 
-function OneStep(state, S::HaRAM, M::Model; τ::Real = 1.0, ref::Bool=true, kwargs...)
+function OneStep(state, S::HaRAM, M::Model; τ::Real=1.0, ref::Bool=true, kwargs...)
 
     H_init = KE(state, M) + PE(state, M) * τ
 
-    ϵ, ϵby2, L  = S.ϵ, 0.5 * S.ϵ, S.L
-    β, β2       = exp(S.γ * ϵby2), exp(S.γ * ϵ)
+    ϵ, ϵby2, L = S.ϵ, 0.5 * S.ϵ, S.L
+    β, β2 = exp(S.γ * ϵby2), exp(S.γ * ϵ)
     (; q, p, m) = state
 
 
     # Uphill Conformal Leapfrog
     p = (β * p) .- (ϵby2 * M.dU(q) .* τ)
     for i in 1:(L-1)
-        q = q .+ (ϵ * p) / m
+        q = q .+ (ϵ * p) ./ m
         p = (β2 * p) .- ((1 + β2) .* (ϵby2 * M.dU(q) .* τ))
     end
-    q = q .+ (ϵ * p) / m
+    q = q .+ (ϵ * p) ./ m
     p = β * (p - (ϵby2 * M.dU(q) .* τ))
 
 
@@ -44,10 +44,10 @@ function OneStep(state, S::HaRAM, M::Model; τ::Real = 1.0, ref::Bool=true, kwar
     # Downhill Conformal Leapfrog
     p = (β * p) .- (ϵby2 * M.dU(q) .* τ)
     for i in 1:(L-1)
-        q = q .+ (ϵ * p) / m
+        q = q .+ (ϵ * p) ./ m
         p = (β2 * p) .- ((1 + β2) .* (ϵby2 * M.dU(q) .* τ))
     end
-    q = q .+ (ϵ * p) / m
+    q = q .+ (ϵ * p) ./ m
     p = β * (p - (ϵby2 * M.dU(q) .* τ))
 
     newstate = momentum_flip((; state..., q=q, p=p))
@@ -55,8 +55,8 @@ function OneStep(state, S::HaRAM, M::Model; τ::Real = 1.0, ref::Bool=true, kwar
     H_final = KE(newstate, M) + PE(newstate, M) * τ
 
     mh_ratio = exp(H_init - H_final)
-    accept = rand() < mh_ratio
-    return (newstate, accept)
+    # accept = rand() < mh_ratio
+    return (newstate, mh_ratio)
 end
 
 
@@ -89,7 +89,7 @@ function OnePath(state, S::HaRAM, M::Model; ref::Bool=true, kwargs...)
     for i in 1:L
         p = β * p
         p = p .- (ϵby2 * M.dU(q))
-        q = q .+ (ϵ * p) / m
+        q = q .+ (ϵ * p) ./ m
         p = p .- (ϵby2 * M.dU(q))
         p = β * p
         k += 1
@@ -109,7 +109,7 @@ function OnePath(state, S::HaRAM, M::Model; ref::Bool=true, kwargs...)
     for i in 1:L
         p = β * p
         p = p .- (ϵby2 * M.dU(q))
-        q = q .+ (ϵ * p) / m
+        q = q .+ (ϵ * p) ./ m
         p = p .- (ϵby2 * M.dU(q))
         p = β * p
         k += 1
