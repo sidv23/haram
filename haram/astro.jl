@@ -20,6 +20,8 @@ begin
 	using Libtask
 	using ForwardDiff
 	using ProgressMeter
+	using ProgressLogging
+	using Pipe
 	
 	ProgressMeter.ijulia_behavior(:clear);
 end
@@ -28,7 +30,7 @@ end
 begin
 Dists = (;
     Δ=Uniform(-1178.939, 1179.939),
-    β=Uniform(-60, 60),
+    β=Uniform(-0.60, 0.60),
     μ=Uniform(-39, 30),
     τ=InverseGamma(1.0, 1.0),
     σ2=InverseGamma(1.0, 2e-7)
@@ -153,17 +155,18 @@ begin
 	
 	
 	
-	function gibbs_sample3(df, S; n=1000, n_burn=1, init=B[1](420.0))
+	function gibbs_sample3(df, S; n=1000, n_burn=1, init=B[1](420.0), m=ones(5))
 	    S1, S2, S3 = S
 	    q1, q2, q3 = init, 0.0, randn(3)
 	
 	    z1 = InitializeState(q1, S1, p1(df, [q2; q3]))
-	    z1 = (; z1..., q=only(z1.q), p=only(z1.p), m=1.0)
+	    z1 = (; z1..., q=only(z1.q), p=only(z1.p), m=m[1])
 	
 	    z2 = InitializeState(q2, S2, p2(df, [q1; q3]))
-	    z2 = (; z2..., q=only(z2.q), p=only(z2.p), m=1.0)
+	    z2 = (; z2..., q=only(z2.q), p=only(z2.p), m=m[2])
 	
 	    z3 = InitializeState(q3, S3, p3(df, [q1; q2]))
+	    z3 = (; z3..., q=z3.q, p=z3.p, m=m[3:end])
 	
 	    N = Int(n + n_burn)
 	    samples = repeat([z1.q; z2.q; z3.q...]', N + 1)
@@ -172,12 +175,12 @@ begin
 	    p = Progress(N)
 	    generate_showvalues(x) = () -> [("Gibbs", x)]
 	
-	    for i ∈ 1:N
+	    @progress for i ∈ 1:N
 	        z1, z2, z3, α_MH = gibbs_step3(df, S, (z1, z2, z3))
 	        samples[i+1, :] = [z1.q; z2.q; z3.q...]
 	        accepts[i+1] = α_MH
 	
-	        next!(p; showvalues=generate_showvalues(mean(accepts[1:i+1])))
+	        # next!(p; showvalues=generate_showvalues(mean(accepts[1:i+1])))
 	    end
 	
 	    samples = samples[Int(n_burn):end, :]
@@ -191,11 +194,12 @@ end
 s, a = gibbs_sample3(
     df,
     (
-        main.HaRAM(ϵ=0.01, L=10, γ=20.1),
-        main.HaRAM(ϵ=5e-3, L=5, γ=0.2),
-        main.HaRAM(ϵ=2e-5, L=3, γ=0.1)
+        main.HaRAM(ϵ=0.002, L=100, γ=0.1),
+        main.HaRAM(ϵ=2e-1, L=5, γ=0.2),
+        main.HaRAM(ϵ=2e-5, L=3, γ=0.1),
     ),
-    n=50000
+    n=1000,
+	m = [1e-2; ones(4)]
 )
 
 # ╔═╡ 3c1dfa2b-9daf-4ec0-bf0c-3fef3cba6759
@@ -205,17 +209,23 @@ begin
 	plot(histogram(θ[1], bins=100), histogram(θ[2], bins=100), layout=(2, 1), size=(500, 500))
 end
 
+# ╔═╡ cc7cbd91-fb9f-4fe4-b9bf-5afd38655556
+map(i -> (@pipe Binv[i].(θ[i]) |> (mean(_), median(_))), 1:2)
+
 # ╔═╡ efcd174c-5ee1-4ac5-9562-3769e56e6887
 begin
 	plt = plot(df.time, df.lca, marker=:o, label="x(t)", lw=2)
-	for i in sample(eachindex(θ[1]), 200)
-	    plt = plot(plt, df.time .- θ[1][i], df.lcb, label="", lw=1, la=0.05, c=:grey)
+	for i in sample(eachindex(θ[1]), 500)
+	    plt = plot(plt, df.time .- θ[1][i], df.lcb .- θ[2][i], label="", lw=1, la=0.05, c=:grey)
 	end
-	plt = plot(plt, df.time .- mean(θ[1]), df.lcb, marker=:o, label="y(t-Δ)", c=:firebrick1, lw=2)
+	plt = plot(plt, df.time .- mean(θ[1]), df.lcb .- mean(θ[2]), marker=:o, label="y(t-Δ)", c=:firebrick1, lw=2)
 	vline!([minimum(df.time), 4825, 4940, 5185, 5360, 5550, 5590], label="", legend=:bottomright, ls=:dash)
 	
 	plt
 end
+
+# ╔═╡ 26561c54-4ef1-4469-b1a5-84e876c55481
+scatter(θ[1], log.(θ[end-1]))
 
 # ╔═╡ Cell order:
 # ╠═0a212ff2-7460-11ed-1858-65e4bff64b31
@@ -227,4 +237,6 @@ end
 # ╠═78b9d749-0eb1-4381-8ce7-4c71569be714
 # ╠═42162939-2874-4713-8ae1-9170c9e2d96a
 # ╠═3c1dfa2b-9daf-4ec0-bf0c-3fef3cba6759
+# ╠═cc7cbd91-fb9f-4fe4-b9bf-5afd38655556
 # ╠═efcd174c-5ee1-4ac5-9562-3769e56e6887
+# ╠═26561c54-4ef1-4469-b1a5-84e876c55481

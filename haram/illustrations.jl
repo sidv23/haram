@@ -26,7 +26,7 @@ params = (;
 Dy = Normal(0, 1)
 Dx = MixtureModel([Normal(-3, 1.0), Normal(3, 1.0)])
 
-L(x, y) = (-(logpdf(Dx, x) + logpdf(Dy, y)))^(-0.5)
+L(x, y) = (-(logpdf(Dx, x) + logpdf(Dy, y)))^(-0.99999)
 
 begin
     py = plot(
@@ -41,7 +41,8 @@ begin
         params...,
         margin=0mm
     )
-    annotate!(0, 0, L"K(\mathbf{p})")
+    hline!([0.0], c=:grey, ls=:dashdot)
+    # annotate!(0, 0, L"K(\mathbf{p})")
 
     px = plot(
         x -> pdf(Dx, x),
@@ -55,7 +56,8 @@ begin
         params...,
         margin=0mm
     )
-    annotate!(0, -0.025, L"U(\mathbf{q})")
+    vline!([-3.0, 3.0], c=:grey, ls=:dashdot)
+    # annotate!(0, -0.025, L"U(\mathbf{q})")
 
     Pxy() = begin
         contourf(
@@ -66,6 +68,8 @@ begin
             padding=0,
             margin=0mm
         )
+        vline!([-3.0, 3.0], c=:grey, ls=:dashdot)
+        hline!([0.0], c=:grey, ls=:dashdot)
     end
 
     p0 = plot(0, 0; params...)
@@ -76,10 +80,11 @@ begin
         [d{0.8h} c{0.15w}]
     ]
     plt(p=Pxy(); size=(650, 650)) = plot(px, p0, p, py, layout=l, size=size)
+    plt()
 end
 
 begin
-    model = main.Model(
+    model() = main.Model(
         ξ=Dx,
         f=x -> pdf(Dx, x...),
         U=x -> -logpdf(Dx, x...),
@@ -87,15 +92,16 @@ begin
     )
 
     state = (; q=-4.5, p=0.9, m=2.5)
-    p1, _ = OnePath(state, HMC(ϵ=0.25, L=25), model)
-    p2, _ = OnePath(state, HaRAM(ϵ=0.25, L=25, γ=0.25), model)
-    plt1 = plot(Pxy(), map(x -> (x.q, x.p), p1), marker=:o, c=:dodgerblue, lw=5, ms=5, msw=1.0, lc=:grey, label="HMC")
-    plt1 = plot(plt1, map(x -> (x.q, x.p), p2[1:end-24]), marker=:o, c=:orange, lw=5, ms=5, msw=1.0, lc=:grey, label="Repelling")
-    plt1 = plot(plt1, map(x -> (x.q, x.p), p2[end-24:end]), marker=:o, c=:chartreuse, lw=5, ms=5, msw=1.0, lc=:grey, label="Attracting")
-    plt1 = scatter(plt1, (state.q, state.p), c=:white, ms=9, msw=3.0, legend=:bottomleft, legendfontsize=9, thickness_scaling=1)
-    # annotate!(0, 8, L"U(\mathbf{q})")
-    # annotate!(8.45, 0, L"K(\mathbf{p})")
-    plt(plt1, size=(550, 550))
+    p1, _ = OnePath(state, HMC(ϵ=0.25, L=25), model())
+    p2, _ = OnePath(state, HaRAM(ϵ=0.25, L=25, γ=0.25), model())
+    plt1 = plot(Pxy(), map(x -> (x.q, x.p), p1), marker=:o, c=:dodgerblue, lw=3, ms=5, msw=1.0, lc=:grey, label="HMC")
+    plt1 = plot(plt1, map(x -> (x.q, x.p), p2[1:end-24]), marker=:o, c=:orange, lw=3, ms=5, msw=1.0, lc=:grey, label="Repelling")
+    plt1 = plot(plt1, map(x -> (x.q, x.p), p2[end-24:end]), marker=:o, c=:chartreuse, lw=3, ms=5, msw=1.0, lc=:grey, label="Attracting")
+    plt1 = scatter(plt1, (state.q, state.p), c=:white, ms=9, msw=3.0, legend=:topleft, legendfontsize=9, thickness_scaling=1)
+    annotate!(0, 8, L"U(\mathbf{q})")
+    annotate!(8.3, 0, L"K(\mathbf{p})")
+    # plt(plt1, size=(350, 350))
+    plt(plt1, size=(850, 350))
 end
-savefig(plt(plt1, size=(550, 550)), plotsdir("illustrations/phase.pdf"))
-
+# savefig(plt(plt1, size=(550, 550)), plotsdir("illustrations/phase.pdf"))
+savefig(plt(plt1, size=(850, 350)), plotsdir("illustrations/phase-wide.pdf"))
