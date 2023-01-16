@@ -2,7 +2,7 @@
 
 Base.@kwdef struct DualAverage
     δ::Real
-    λ::Real
+    λ::Real = 1.0
 end
 
 function OneLeapfrog(M::Model, state::NamedTuple, ϵ::Real, τ::Real=1.0)
@@ -99,7 +99,6 @@ function DualAveraging(D::DualAverage, S::AbstractSampler, M::Model; n_burn::Int
 
     ϵ = find_reasonable_epsilon(q, M, α=0.5)
     # ϵ = AdvancedHMC.find_good_stepsize(AdvancedHMC.Hamiltonian(DiagEuclideanMetric(M.d), M.U, ForwardDiff), q)
-    # @info "" ϵ
     @set! S.ϵ = ϵ
     
     if typeof(S) === HaRAM
@@ -108,10 +107,11 @@ function DualAveraging(D::DualAverage, S::AbstractSampler, M::Model; n_burn::Int
     end
     
     S = Initialize_DualVariables(S)
-    # @set! S.cache.ϵ_dual = ϵ
+
+    # @info "" S
 
     for m in 1:n_burn
-        @set! S.L = min(max(1, round(Int, λ / S.ϵ)), 100)
+        @set! S.L = min(max(1, round(Int, λ / S.ϵ)), 1000)
         # @info "" S
         newstate, α_MH = OneStep(state, S, M)
         α_MH = min(1, α_MH)
@@ -142,15 +142,16 @@ function mcmc(D::DualAverage, S::AbstractSampler, M::Model; n::I=1e3, n_burn::I=
     accepts = fill(false, N + 1)
 
     p = Progress(Int(N + n_burn))
-    generate_showvalues(x) = () -> [("$(typeof(S))", x)]
+    # generate_showvalues(x) = () -> [("$(typeof(S))", x)]
+    generate_showvalues(x) = () -> [("$(S)", x)]
 
     S, state = DualAveraging(D, S, M; n_burn=Int(n_burn), p=p)
-    println("S=$S")
+    @set! S.cache = []
 
     for i ∈ 1:N
         state = RefreshState(samples[i, :], state, S, M; kwargs...)
         newstate, mh_ratio = OneStep(state, S, M; kwargs...)
-        
+
         accept = rand() < mh_ratio
         accepts[i+1] = accept
         if accept

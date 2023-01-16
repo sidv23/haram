@@ -24,7 +24,8 @@ function mcmc(S::T, M::Model; n::I=1e3, n_burn::I=1e3, init=nothing, kwargs...) 
     accepts = fill(false, N + 1)
 
     p = Progress(N)
-    generate_showvalues(x) = () -> [("$(typeof(S))", x)]
+    # generate_showvalues(x) = () -> [("$(typeof(S))", x)]
+    generate_showvalues(x) = () -> [("$S", x)]
 
     for i ∈ 1:N
         state = RefreshState(samples[i, :], state, S, M; kwargs...)

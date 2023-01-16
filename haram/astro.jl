@@ -194,34 +194,43 @@ end
 s, a = gibbs_sample3(
     df,
     (
-        main.HaRAM(ϵ=0.002, L=100, γ=0.1),
-        main.HaRAM(ϵ=2e-1, L=5, γ=0.2),
+        main.HaRAM(ϵ=0.001, L=50, γ=0.5),
+        main.HaRAM(ϵ=2e-1, L=5, γ=0.1),
         main.HaRAM(ϵ=2e-5, L=3, γ=0.1),
     ),
-    n=1000,
-	m = [1e-2; ones(4)]
+    n=10000,
+	m = [2e-4; 1e2; ones(3)]
 )
 
 # ╔═╡ 3c1dfa2b-9daf-4ec0-bf0c-3fef3cba6759
 begin
 	θ = fmap(eachcol(s[a, :]), Binv)
 	# θ = fmap(eachcol(s[:, :]), Binv)
-	plot(histogram(θ[1], bins=100), histogram(θ[2], bins=100), layout=(2, 1), size=(500, 500))
+	hist = plot(histogram(θ[1], bins=100, label="Δ", normalize=true), histogram(θ[2], bins=100, label="β", normalize=true), layout=(1, 2), size=(800, 250))
+	hist
 end
 
 # ╔═╡ cc7cbd91-fb9f-4fe4-b9bf-5afd38655556
-map(i -> (@pipe Binv[i].(θ[i]) |> (mean(_), median(_))), 1:2)
+[(mean(θ[i]), median(θ[i])) for i in 1:2]
 
 # ╔═╡ efcd174c-5ee1-4ac5-9562-3769e56e6887
 begin
-	plt = plot(df.time, df.lca, marker=:o, label="x(t)", lw=2)
-	for i in sample(eachindex(θ[1]), 500)
-	    plt = plot(plt, df.time .- θ[1][i], df.lcb .- θ[2][i], label="", lw=1, la=0.05, c=:grey)
+	plt = plot(df.time, df.lca, marker=:o, label="", lw=2, la=0, ma=0)
+	for i in sample(eachindex(θ[1]), 2000)
+	    plt = plot(plt, df.time .- θ[1][i], df.lcb .+ θ[2][i], label="", lw=1, la=0.05, c=:grey)
 	end
-	plt = plot(plt, df.time .- mean(θ[1]), df.lcb .- mean(θ[2]), marker=:o, label="y(t-Δ)", c=:firebrick1, lw=2)
-	vline!([minimum(df.time), 4825, 4940, 5185, 5360, 5550, 5590], label="", legend=:bottomright, ls=:dash)
-	
+	plt = plot(plt, df.time, df.lca, marker=:o, label="x(t-Δ)", lw=2, c=:dodgerblue)
+	plt = plot(plt, df.time .- mean(θ[1]), df.lcb .+ mean(θ[2]), marker=:o, label="y(t)", c=:firebrick1, lw=2)
+	vline!([minimum(df.time), 4825, 4940, 5185, 5360], label="", legend=:bottomright, ls=:dashdot, c=:black)
 	plt
+end
+
+# ╔═╡ be9af467-d2fb-4198-8944-a43e7a771ff8
+begin
+	# savefig(hist, plotsdir("astro/hist.pdf"))
+	# savefig(hist, plotsdir("astro/hist.svg"))
+	# savefig(plt, plotsdir("astro/match.pdf"))
+	# savefig(plt, plotsdir("astro/match.svg"))
 end
 
 # ╔═╡ 26561c54-4ef1-4469-b1a5-84e876c55481
@@ -239,4 +248,5 @@ scatter(θ[1], log.(θ[end-1]))
 # ╠═3c1dfa2b-9daf-4ec0-bf0c-3fef3cba6759
 # ╠═cc7cbd91-fb9f-4fe4-b9bf-5afd38655556
 # ╠═efcd174c-5ee1-4ac5-9562-3769e56e6887
+# ╠═be9af467-d2fb-4198-8944-a43e7a771ff8
 # ╠═26561c54-4ef1-4469-b1a5-84e876c55481

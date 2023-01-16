@@ -153,14 +153,14 @@ end;
 
 
 ξ = bayes_nn(xs', ys, length(θ), f)
-model = make_model(ξ, length(θ))
+model() = make_model(ξ, length(θ))
 
 
 begin
     s1, a1 = mcmc(
     DualAverage(λ=1, δ=0.7),
     HMC(),
-    model; n=5e3, n_burn=1e3
+    model(); n=5e3, n_burn=1e3
     )
     x_hmc = s1[a1, :]
     nn_plot_mean(x_hmc, res=50)
@@ -170,7 +170,7 @@ begin
     s2, a2 = mcmc(
     DualAverage(λ=1, δ=0.7),
     HaRAM(),
-    model; n=5e3, n_burn=1e3
+    model(); n=5e3, n_burn=1e3
     )
     x_haram = s2[a2, :]
     nn_plot_mean(x_haram, res=50)

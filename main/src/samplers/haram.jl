@@ -38,7 +38,7 @@ function OneStep(state, S::HaRAM, M::Model; τ::Real=1.0, ref::Bool=true, kwargs
     β, β2 = 1 / β, 1 / β2
 
     # if ref
-    #     (; q, p) = reflect((; q=q, p=p), M)
+        # (; q, p) = reflect((; q=q, p=p), M)
     # end
 
     # Downhill Conformal Leapfrog
