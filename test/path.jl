@@ -4,7 +4,9 @@ using DrWatson
 begin
     using main
     using Distributions, BenchmarkTools, Pipe
+    using Plots
 end
+
 
 begin
     path2pts(path) = map(x -> tuple(x.q...), path)

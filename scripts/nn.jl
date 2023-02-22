@@ -131,9 +131,8 @@ end
 scatter(Tuple.(eachrow(xs)), group=ys, ratio=1)
 
 F = Chain(
-Dense(2, 2, tanh),
-Dense(2, 2, tanh),
-Dense(2, 2, tanh),
+Dense(2, 2, selu),
+Dense(2, 2, selu),
 Dense(2, 1, sigmoid)
 )
 
@@ -157,8 +156,9 @@ model() = make_model(ξ, length(θ))
 
 
 begin
+    Random.seed!(2022)
     s1, a1 = mcmc(
-    DualAverage(λ=1, δ=0.7),
+    DualAverage(λ=1, δ=0.5),
     HMC(),
     model(); n=5e3, n_burn=1e3
     )
@@ -167,8 +167,9 @@ begin
 end
 
 begin
+    Random.seed!(2022)
     s2, a2 = mcmc(
-    DualAverage(λ=1, δ=0.7),
+    DualAverage(λ=1, δ=0.5),
     HaRAM(),
     model(); n=5e3, n_burn=1e3
     )
