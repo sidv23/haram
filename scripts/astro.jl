@@ -15,6 +15,7 @@ end
 
 s2v(s::Symbol, v::Any) = @eval (($s) = ($v))
 s2v(s::Symbol, v::D) where {D<:Distribution} = @eval (($s) ~ ($v))
+v2n(V::Vector{T}, S::NTuple) where {T<:Real} = NamedTuple{S}(V)
 
 Dists = (;
     # Δ=Uniform(-1178.939, 1179.939),
